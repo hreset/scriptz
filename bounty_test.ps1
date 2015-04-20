@@ -1,30 +1,42 @@
-﻿ # Use: bounty_test \\someNetworkPath
+﻿ # Use: bounty_test \\someNetworkPath [-log logname.log] [-sec secondsBetween]
  # henson.reset@gmail.com
 
- # Attaches specified network drive to Y: (which should not exist!)
+ # Attaches specified network drive to first available drive letter
  # and tests connection every specified number of seconds.
  
- # Default network path to test
- param([string]$netPath = "\\someNetworkPath")
+ [CmdletBinding()]
+ param([Parameter(Mandatory=$true)][string]$netPath,
+       [string]$logName = "bountlog.txt",
+       [string]$seconds = 300)
 
  # Number of seconds to wait between attempts
- $seconds = 300
+ $seconds = 5
 
+ # Drive letter of temporary network mapping
+ $driveLetter = "NOTASSIGNED"
+ 
  Write-Host "Beginning connection test to $netPath"
  Write-Host "Press Ctrl + C to exit."
  while ($true) { 
 
   Start-Sleep -s $seconds
-  net use /delete y: # Disonnect if connected (may error first run)
-  $date = Get-Date
-  net use y: $netPath # Try connecting again
+  if ($driveLetter -ne "NOTASSIGNED") {
+    net use $driveLetter /delete /yes 
+  }
   
-  if ($LASTEXITCODE -eq 0) { 
+  #Try Connecting
+  $date = Get-Date
+  $connect  = (net use * $netPath)
+  $lastExit = $LASTEXITCODE
+  $matches  = ($connect | Select-String "Drive\s(.+?)\sis").Matches
+
+  if (($lastExit -eq 0) -and ($matches.Groups.Count -gt 1)) { 
     # If successfull
-    echo "$date - Connected Successfully." >> bountlog.txt
+    $driveLetter = $matches.Groups[1].Value
+    echo "$date - Connected Successfully. ($driveLetter)" >> $logName
   } else { 
     # If not successful
-    echo "$date - Could not connect." >> bountlog.txt
+    echo "$date - Could not connect." >> $logName
   } 
 
 } 
